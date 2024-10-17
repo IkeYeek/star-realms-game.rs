@@ -3,6 +3,8 @@ use std::fmt::{format, Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 use crate::abilities::Ability::{Atomic, Delayed};
+use crate::abilities::AfterCapacity::{AllyToAll, NextShipOnTop, ScrapFromHand};
+use crate::abilities::ChoicesSources::{Discarded, EnemyBase, EnemyPlayable, Playable, Played, TradeRow};
 use crate::cards::{Card, CardFactory, Faction};
 use crate::star_realms::{GameState, Player};
 
@@ -30,6 +32,23 @@ impl Predicate {
     }
 }
 
+pub enum ChoicesSources {
+    EnemyBase,
+    TradeRow,
+    Played,
+    Discarded,
+    Playable,
+    EnemyPlayable,
+    And(Box<ChoicesSources>, Box<ChoicesSources>)
+}
+
+pub enum AfterCapacity {
+    AllyToAll,
+    NextShipOnTop,
+    NextShipFree,
+    ScrapFromHand,
+    And(Box<AfterCapacity>, Box<AfterCapacity>)
+}
 
 pub trait AtomicAbilityTrait {
     fn name(&self) -> &str;
@@ -47,6 +66,8 @@ pub struct AtomicAbility
     name: String,
     description: String,
     ability: Rc<AtomicAbilityFn>,
+    choices_sources: Option<Rc<ChoicesSources>>,
+    after_capacity: Option<Rc<AfterCapacity>>,
 }
 
 impl Debug for AtomicAbility {
@@ -123,6 +144,8 @@ impl AbilityFactory {
                 new_player.hand.damage += amt;
                 Ok(gs.mutate_players(new_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: None,
         })
     }
 
@@ -135,6 +158,8 @@ impl AbilityFactory {
                 new_player.hand.trade += amt;
                 Ok(gs.mutate_players(new_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: None,
         })
     }
 
@@ -147,6 +172,8 @@ impl AbilityFactory {
                 new_player.authority += amt;
                 Ok(gs.mutate_players(new_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: None,
         })
     }
 
@@ -161,6 +188,8 @@ impl AbilityFactory {
                 }
                 Ok(gs.mutate_players(new_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: None,
         })
     }
 
@@ -173,6 +202,8 @@ impl AbilityFactory {
                 current_player.hand.next_n_ships_on_top += 1;
                 Ok(gs.mutate_players(current_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: Some(Rc::new(NextShipOnTop)),
         })
     }
 
@@ -187,6 +218,8 @@ impl AbilityFactory {
                 gs.card_to_scrap(removed);
                 Ok(gs.mutate_players(opponent, gs.turn%2+1))
             }))),
+            choices_sources: Some(Rc::new(EnemyBase)),
+            after_capacity: None,
         })))
     }
 
@@ -200,6 +233,8 @@ impl AbilityFactory {
                 gs.card_to_scrap(removed);
                 Ok(gs)
             }))),
+            choices_sources: Some(Rc::new(TradeRow)),
+            after_capacity: None,
         })))
     }
 
@@ -213,6 +248,8 @@ impl AbilityFactory {
                 current_player.hand.next_n_ships_free += 1;
                 Ok(gs.mutate_players(current_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: Some(Rc::new(AfterCapacity::And(Box::new(AfterCapacity::NextShipFree), Box::new(NextShipOnTop)))),
         })
     }
 
@@ -235,6 +272,8 @@ impl AbilityFactory {
                 }
                 Ok(gs.mutate_players(current_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: None,
         })
     }
 
@@ -249,6 +288,8 @@ impl AbilityFactory {
                 gs.card_to_scrap(removed);
                 Ok(gs.mutate_players(other_player, (gs.turn+1)%2))
             }))),
+            choices_sources: Some(Rc::new(EnemyPlayable)),
+            after_capacity: None,
         })
     }
 
@@ -266,6 +307,8 @@ impl AbilityFactory {
                 }
                 Ok(gs.mutate_players(current_player, gs.turn%2))
             }))),
+            choices_sources: Some(Rc::new(Playable)),
+            after_capacity: None,
         })))
     }
 
@@ -281,6 +324,8 @@ impl AbilityFactory {
                 }
                 Ok(gs.mutate_players(current_player, gs.turn%2))
             }))),
+            choices_sources: None,
+            after_capacity: None,
         })
     }
 
@@ -298,7 +343,9 @@ impl AbilityFactory {
                     gs.card_to_scrap(Self::remove_if_exists(&mut current_player.discard, card.clone()));
                 }
                 Ok(gs.mutate_players(current_player, gs.turn%2))
-            })))
+            }))),
+            choices_sources: Some(Rc::new(ChoicesSources::And(Box::new(Playable), Box::new(Discarded)))),
+            after_capacity: None,
         })
     }
 
@@ -311,7 +358,9 @@ impl AbilityFactory {
                 Self::remove_if_exists(&mut current_player.hand.playable, CardFactory::stealth_needle());
                 current_player.hand.played.push(c.clone());
                 Ok(gs.mutate_players(current_player, gs.turn%2))
-            })))
+            }))),
+            choices_sources: Some(Rc::new(Played)),
+            after_capacity: None,
         })))
     }
 
@@ -321,7 +370,9 @@ impl AbilityFactory {
             description: "Counts as an ally for all factions".to_string(),
             ability: Rc::new(AtomicAbilityFn::Default(Box::new(move |gs: GameState| -> Result<GameState, String> {
                 Ok(gs)
-            })))
+            }))),
+            choices_sources: None,
+            after_capacity: Some(Rc::new(AllyToAll)),
         })
     }
 
@@ -346,7 +397,9 @@ impl AbilityFactory {
                 }
                 Ok(gs.mutate_players(current_player, gs.turn%2))
 
-            })))
+            }))),
+            choices_sources: Some(Rc::new(ChoicesSources::And(Box::new(Playable), Box::new(Discarded)))),
+            after_capacity: None,
         })))
     }
 
@@ -358,7 +411,9 @@ impl AbilityFactory {
                 let mut curr_player = gs.get_current_player();
                 curr_player.draw();
                 Ok(gs.mutate_players(curr_player, gs.turn%2))
-            })))
+            }))),
+            choices_sources: None,
+            after_capacity: Some(Rc::new(ScrapFromHand)),
         })))
     }
 }

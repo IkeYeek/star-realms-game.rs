@@ -433,4 +433,117 @@ impl CardFactory {
     }
 
     // Machine Cult
+    pub fn trade_bot() -> Card {
+        Self::faction("Trade Bot".to_string(), Abilities {
+            on_board: Some(And(
+                Box::new(AbilityFactory::give_trade(1)),
+                Box::new(AbilityFactory::scrap_at_most(1))
+            )),
+            on_faction: Some(AbilityFactory::give_damages(2)),
+            on_scrap: None,
+        }, Machine, Some(1))
+    }
+
+    pub fn missile_bot() -> Card {
+        Self::faction("Missile Bot".to_string(), Abilities {
+            on_board: Some(And(
+                Box::new(AbilityFactory::give_damages(2)),
+                Box::new(AbilityFactory::scrap_at_most(1))
+            )),
+            on_faction: Some(AbilityFactory::give_damages(2)),
+            on_scrap: None,
+        }, Machine, Some(2))
+    }
+
+    pub fn supply_bot() -> Card {
+        Self::faction("Supply Bot".to_string(), Abilities {
+            on_board: Some(And(
+                Box::new(AbilityFactory::give_trade(2)),
+                Box::new(AbilityFactory::scrap_at_most(1)),
+            )),
+            on_faction: Some(AbilityFactory::give_damages(2)),
+            on_scrap: None
+        }, Machine, Some(3))
+    }
+
+    pub fn battle_station() -> Card {
+        Self::base("Battle Station".to_string(), Abilities {
+            on_board: None,
+            on_faction: None,
+            on_scrap: Some(AbilityFactory::give_damages(5))
+        }, Some(Machine), Some(3), 5, true)
+    }
+
+    pub fn patrol_merch() -> Card {
+        Self::faction("Patrol Merch".to_string(), Abilities {
+            on_board: Some(Or(
+                Box::new(AbilityFactory::give_trade(3)),
+                Box::new(AbilityFactory::give_damages(5))
+            )),
+            on_faction: Some(AbilityFactory::scrap_at_most(1)),
+            on_scrap: None
+        }, Machine, Some(4))
+    }
+
+    pub fn stealth_needle() -> Card {
+        Self::faction("Stealth Needle".to_string(), Abilities {
+            on_board: Some(AbilityFactory::copy_ship()),
+            on_faction: None,
+            on_scrap: None
+        }, Machine, Some(4))
+    }
+
+    pub fn battle_merch() -> Card {
+        Self::faction("Battle Merch".to_string(), Abilities {
+            on_board: Some(And(
+                Box::new(AbilityFactory::give_damages(4)),
+                Box::new(AbilityFactory::scrap_at_most(1))
+            )),
+            on_faction: Some(AbilityFactory::draw(1)),
+            on_scrap: None
+        }, Machine, Some(5))
+    }
+
+    pub fn missile_merch() -> Card {
+        Self::faction("Missile Merch".to_string(), Abilities {
+            on_board: Some(And(
+                Box::new(AbilityFactory::give_damages(6)),
+                Box::new(AbilityFactory::destroy_target_base())
+            )),
+            on_faction: Some(AbilityFactory::draw(1)),
+            on_scrap: None
+        }, Machine, Some(6))
+    }
+
+    pub fn mech_world() -> Card {
+        Self::base("Mech World".to_string(), Abilities {
+            on_board: Some(AbilityFactory::ally_to_all()),
+            on_faction: None,
+            on_scrap: None
+        }, Some(Machine), Some(5), 6, true)
+    }
+
+    pub fn brain_world() -> Card {
+        Self::base("Brain World".to_string(), Abilities {
+            on_board: Some(AbilityFactory::scrap_n_draw_n(2)),
+            on_faction: None,
+            on_scrap: None
+        }, Some(Machine), Some(8), 6, true)
+    }
+
+    pub fn machine_base() -> Card {
+        Self::base("Machine Base".to_string(), Abilities {
+            on_board: Some(AbilityFactory::draw_then_scrap()),
+            on_faction: None,
+            on_scrap: None
+        }, Some(Machine), Some(7), 6, true)
+    }
+
+    pub fn junkyard() -> Card {
+        Self::base("Junkyard".to_string(), Abilities {
+            on_board: Some(AbilityFactory::scrap_at_most(1)),
+            on_faction: None,
+            on_scrap: None
+        }, Some(Machine), Some(6), 5, true)
+    }
 }

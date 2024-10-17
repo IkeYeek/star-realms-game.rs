@@ -56,6 +56,12 @@ impl GameState {
             self.players.0.clone()
         }
     }
+
+    pub fn card_to_scrap(&mut self, c: Option<Card>) {
+        if let Some(c) = c {
+            self.scrap.push(c);
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub struct Hand {
@@ -65,11 +71,7 @@ pub struct Hand {
     pub trade: i32,
     pub damage: i32,
     pub next_n_ships_on_top: i32,
-    /*pub can_scrap_trade_row: i32,
-    pub can_destroy_n_bases: i32,*/
     pub next_n_ships_free: i32,
-    /*pub to_discard: i32,*/
-    /*pub discard_to_peek: i32,*/
 }
 
 impl Hand {
@@ -81,11 +83,7 @@ impl Hand {
             trade: 0,
             damage: 0,
             next_n_ships_on_top: 0,
-            /*can_scrap_trade_row: 0,
-            can_destroy_n_bases: 0,*/
             next_n_ships_free: 0,
-            /*to_discard: 0,*/
-            /*discard_to_peek: 0,*/
         }
     }
 

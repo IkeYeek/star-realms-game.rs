@@ -1,9 +1,9 @@
 use std::cmp::PartialEq;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{format, Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 use crate::abilities::Ability::{Atomic, Delayed};
-use crate::cards::{Card, Faction};
+use crate::cards::{Card, CardFactory, Faction};
 use crate::star_realms::{GameState, Player};
 
 #[derive(Clone)]
@@ -39,7 +39,7 @@ pub enum AtomicAbilityFn {
     Default(Box<dyn Fn(GameState) -> Result<GameState, String>>),
     Card(Box<dyn Fn(GameState, Card) -> Result<GameState, String>>),
     Cards(Box<dyn Fn(GameState, Vec<Card>) -> Result<GameState, String>>),
-    CardsAndHolder(Box<dyn Fn(GameState, Vec<Card>, &mut Vec<Card>) -> Result<GameState, String>>)
+    CardsFromHandOrDiscard(Box<dyn Fn(GameState, Vec<Card>, Vec<Card>) -> Result<GameState, String>>),
 }
 #[derive(Clone)]
 pub struct AtomicAbility
@@ -102,7 +102,7 @@ impl PartialEq for Card {
 }
 
 impl AbilityFactory {
-    fn remove_if_exists(mut from: &mut Vec<Card>, card: Card) {
+    fn remove_if_exists(mut from: &mut Vec<Card>, card: Card) -> Option<Card> {
         let mut to_rem: i32 = -1;
         for i in 0..from.len() {
             if from[i] == card {
@@ -110,8 +110,9 @@ impl AbilityFactory {
             }
         }
         if to_rem >= 0 {
-            from.remove(to_rem as usize);
+            return Some(from.remove(to_rem as usize));
         }
+        None
     }
     pub fn give_damages(amt: i32) -> Ability {
         Atomic(AtomicAbility {
@@ -181,7 +182,9 @@ impl AbilityFactory {
             description: "You may destroy target base".to_string(),
             ability: Rc::new(AtomicAbilityFn::Card(Box::new(move |gs: GameState, card: Card| -> Result<GameState, String> {
                 let mut opponent = gs.get_opponent_player();
-                Self::remove_if_exists(&mut opponent.hand.played, card.clone());
+                let removed = Self::remove_if_exists(&mut opponent.hand.played, card.clone());
+                let mut gs = gs.clone();
+                gs.card_to_scrap(removed);
                 Ok(gs.mutate_players(opponent, gs.turn%2+1))
             }))),
         })))
@@ -193,7 +196,8 @@ impl AbilityFactory {
             description: "You may scrap a card in the trade ro".to_string(),
             ability: Rc::new(AtomicAbilityFn::Card(Box::new(move |mut gs: GameState, c: Card| -> Result<GameState, String> {
                 gs = gs.clone();
-                Self::remove_if_exists(&mut gs.trade_row, c.clone());
+                let removed = Self::remove_if_exists(&mut gs.trade_row, c.clone());
+                gs.card_to_scrap(removed);
                 Ok(gs)
             }))),
         })))
@@ -240,7 +244,9 @@ impl AbilityFactory {
             description: "Target opponent discards a card".to_string(),
             ability: Rc::new(AtomicAbilityFn::Card(Box::new(|gs: GameState, c: Card| -> Result<GameState, String> {
                 let mut other_player: Player = gs.get_opponent_player();
-                Self::remove_if_exists(&mut other_player.hand.playable, c);
+                let removed = Self::remove_if_exists(&mut other_player.hand.playable, c);
+                let mut gs = gs.clone();
+                gs.card_to_scrap(removed);
                 Ok(gs.mutate_players(other_player, (gs.turn+1)%2))
             }))),
         })
@@ -253,7 +259,9 @@ impl AbilityFactory {
             ability: Rc::new(AtomicAbilityFn::Cards(Box::new(move |gs: GameState, cs: Vec<Card>| -> Result<GameState, String> {
                 let mut current_player = gs.get_current_player();
                 for c in cs {
-                    Self::remove_if_exists(&mut current_player.hand.playable, c.clone());
+                    let removed = Self::remove_if_exists(&mut current_player.hand.playable, c.clone());
+                    let mut gs = gs.clone();
+                    gs.card_to_scrap(removed);
                     current_player.draw();
                 }
                 Ok(gs.mutate_players(current_player, gs.turn%2))
@@ -274,5 +282,83 @@ impl AbilityFactory {
                 Ok(gs.mutate_players(current_player, gs.turn%2))
             }))),
         })
+    }
+
+    pub fn scrap_at_most(n: i32) -> Ability {
+        Atomic(AtomicAbility {
+            name: format!("Scrap {n}"),
+            description: format!("Scrap {n} cards from your hand or discard pile"),
+            ability: Rc::new(AtomicAbilityFn::CardsFromHandOrDiscard(Box::new(move |gs: GameState, hand_cards: Vec<Card>, discard_cards: Vec<Card>| -> Result<GameState, String> {
+                let mut gs = gs.clone();
+                let mut current_player = gs.get_current_player();
+                for card in hand_cards {
+                    gs.card_to_scrap(Self::remove_if_exists(&mut current_player.hand.playable, card.clone()));
+                }
+                for card in discard_cards {
+                    gs.card_to_scrap(Self::remove_if_exists(&mut current_player.discard, card.clone()));
+                }
+                Ok(gs.mutate_players(current_player, gs.turn%2))
+            })))
+        })
+    }
+
+    pub fn copy_ship() -> Ability {
+        Delayed(Box::new(Atomic(AtomicAbility {
+            name: "Copy Ship".to_string(),
+            description: "Copy another ship you've played this turn.".to_string(),
+            ability: Rc::new(AtomicAbilityFn::Card(Box::new(|gs: GameState, c: Card| -> Result<GameState, String> {
+                let mut current_player = gs.get_current_player();
+                Self::remove_if_exists(&mut current_player.hand.playable, CardFactory::stealth_needle());
+                current_player.hand.played.push(c.clone());
+                Ok(gs.mutate_players(current_player, gs.turn%2))
+            })))
+        })))
+    }
+
+    pub fn ally_to_all() -> Ability {
+        Atomic(AtomicAbility {
+            name: "Ally To All".to_string(),
+            description: "Counts as an ally for all factions".to_string(),
+            ability: Rc::new(AtomicAbilityFn::Default(Box::new(move |gs: GameState| -> Result<GameState, String> {
+                Ok(gs)
+            })))
+        })
+    }
+
+    pub fn scrap_n_draw_n(max: i32) -> Ability {
+        Delayed(Box::new(Atomic(AtomicAbility {
+            name: format!("Scrap max {max}, draw same amount"),
+            description: format!("Scrap up to {max} cards, then draw the same amount"),
+            ability: Rc::new(AtomicAbilityFn::CardsFromHandOrDiscard(Box::new(move |gs: GameState, h: Vec<Card>, d: Vec<Card>| -> Result<GameState, String> {
+                let mut gs = gs.clone();
+                let mut current_player = gs.get_current_player();
+                let mut draw = 0;
+                for c in h {
+                    gs.card_to_scrap(Self::remove_if_exists(&mut current_player.hand.playable, c.clone()));
+                    draw += 1;
+                }
+                for c in d {
+                    gs.card_to_scrap(Self::remove_if_exists(&mut current_player.discard, c.clone()));
+                    draw += 1;
+                }
+                for _ in 0..draw {
+                    current_player.draw()
+                }
+                Ok(gs.mutate_players(current_player, gs.turn%2))
+
+            })))
+        })))
+    }
+
+    pub fn draw_then_scrap() -> Ability {
+        Delayed(Box::new(Atomic(AtomicAbility {
+            name: "Draw 1 then scrap 1".to_string(),
+            description: "Draw a card, then scrap a card from your hand".to_string(),
+            ability: Rc::new(AtomicAbilityFn::Card(Box::new(|gs: GameState, c: Card| {
+                let mut curr_player = gs.get_current_player();
+                curr_player.draw();
+                Ok(gs.mutate_players(curr_player, gs.turn%2))
+            })))
+        })))
     }
 }

@@ -7,11 +7,12 @@ use crate::abilities::AtomicAbilityFn::Cards;
 use crate::cards::{Card, CardFactory, Faction};
 use crate::star_realms::GameState;
 
-
 mod star_realms;
 mod abilities;
 mod cards;
 mod gamelogic;
+
+// Structures de données
 
 #[derive(Properties, PartialEq)]
 pub struct CardProps {
@@ -60,7 +61,6 @@ impl FlattenedCard {
             is_outpost: None,
         };
         Self::from_rec(c, &mut fc);
-        let fc = fc;
         fc
     }
 }
@@ -69,6 +69,64 @@ impl FlattenedCard {
 struct FactionProps {
     faction: Faction,
 }
+
+#[derive(Properties, PartialEq)]
+struct RowProps {
+    cards: Vec<Card>,
+}
+
+#[derive(Properties, PartialEq)]
+struct PlayedCardsProps {
+    bases: Vec<Card>,
+    ships: Vec<Card>,
+}
+
+#[derive(Properties, PartialEq)]
+struct PlayerDiscardProps {
+    discard: Vec<Card>
+}
+
+#[derive(Properties, PartialEq)]
+struct CardDeckProps {
+    deck: Vec<Card>,
+    visible: bool,
+}
+
+#[derive(Properties, PartialEq)]
+struct AuthorityProps {
+    authority: i32,
+    p1: bool,
+}
+
+#[derive(Properties, PartialEq)]
+struct PlayerProps {
+    discard: Vec<Card>,
+    deck: Vec<Card>,
+    played: Vec<Card>,
+    authority: i32,
+    p1: bool
+}
+
+#[derive(Properties, PartialEq)]
+struct CardsModalProps {
+    cards: Vec<Card>
+}
+
+#[derive(Properties, PartialEq)]
+struct CardModalProps {
+    card: Card,
+}
+
+#[derive(Properties, PartialEq)]
+struct BoardProps {
+    explorers: Vec<Card>,
+    trade_row: Vec<Card>,
+    trade_deck: Vec<Card>,
+    scrap: Vec<Card>
+}
+
+// Composants
+
 #[function_component]
 fn FactionComponent(props: &FactionProps) -> Html {
     let faction = match props.faction {
@@ -131,25 +189,15 @@ fn CardComponent(props: &CardProps) -> Html {
     }
 }
 
-#[derive(Properties, PartialEq)]
-struct RowProps {
-    cards: Vec<Card>,
-}
-
 #[function_component]
 fn TradeRow(props: &RowProps) -> Html {
     html! {
-        <div class="trade-row">
-            { for props.cards.iter().map(|card| html! { <CardComponent card={card.clone()} /> }) }
+       <div class="trade-row-container">
+            <div class="trade-row">
+                { for props.cards.iter().map(|card| html! { <div class="trade-row-elem"><CardComponent card={card.clone()} /> </div>}) }
+            </div>
         </div>
     }
-}
-
-
-#[derive(Properties, PartialEq)]
-struct PlayedCardsProps {
-    bases: Vec<Card>,
-    ships: Vec<Card>,
 }
 
 #[function_component]
@@ -165,19 +213,17 @@ fn PlayedCards(props: &PlayedCardsProps) -> Html {
         </div>
     }
 }
+
 #[function_component]
-fn EmptyPile() -> Html{
-    html! {<>
-    <div class={classes!("card-empty")}>
-    <div class={classes!("empty-icon")}>{"X"}</div>
-    <div class={classes!("empty-text")}>{"Pile Empty"}</div>
-</div></>
+fn EmptyPile() -> Html {
+    html! {
+        <div class={classes!("card-empty")}>
+            <div class={classes!("empty-icon")}>{"X"}</div>
+            <div class={classes!("empty-text")}>{"Pile Empty"}</div>
+        </div>
     }
 }
-#[derive(Properties, PartialEq)]
-struct PlayerDiscardProps {
-    discard: Vec<Card>
-}
+
 #[function_component]
 fn PlayerDiscard(props: &PlayerDiscardProps) -> Html {
     match props.discard.clone().pop() {
@@ -185,113 +231,134 @@ fn PlayerDiscard(props: &PlayerDiscardProps) -> Html {
         Some(c) => html! { <CardComponent card={c.clone()} /> }
     }
 }
-#[derive(Properties, PartialEq)]
-struct CardDeckProps {
-    deck: Vec<Card>,
-    visible: bool,
-}
 
 #[function_component]
 fn CardBackComponent() -> Html {
-   html! {
-      <>
-       <div class={classes!("card-back")}>
-        <div class={classes!("card-back-logo")}>{"star-realms.rs"}</div>
-    </div>
-       </>
-   }
+    html! {
+        <div class={classes!("card-back")}>
+            <div class={classes!("card-back-logo")}>{"star-realms.rs"}</div>
+        </div>
+    }
 }
+
 #[function_component]
 fn CardDeck(props: &CardDeckProps) -> Html {
     let c = props.deck.clone().pop().clone();
     match c {
         None => html! { <EmptyPile /> },
         Some(c) => if props.visible {
-            html! { <CardComponent card={c} /> }
+            html! { <div onclick={Callback::from(|evt| {
+                info!("??");
+            })}><CardComponent card={c} /></div> }
         } else {
             html! { <CardBackComponent /> }
         }
     }
 }
-#[derive(Properties, PartialEq)]
-struct AuthorityProps {
-    authority: i32,
-}
+
 #[function_component]
 fn PlayerAuthority(props: &AuthorityProps) -> Html {
-   html! {
-       <>
-        <div class={classes!("player-row")}>
-    <div class={classes!("authority-card")}>
-        <div class={classes!("card-title")}>{"Authority"}</div>
-        <div class={classes!("authority-display")}>
-            <div class={classes!("authority-icon")}>{"ICON"}</div>
-            <div class={classes!("authority-number")}>{props.authority}</div>
-        </div>
-    </div>
-</div></>
+    let playerName = if props.p1 { "Player 1"} else { "Player 2" };
+    html! {
+            <div class={classes!("authority-card")}>
+                <div class={classes!("card-title")}>{"Authority"}</div>
+                <div class={classes!("authority-display")}>
+                    <div class={classes!("authority-icon")}>{playerName}</div>
+                    <div class={classes!("authority-number")}>{props.authority}</div>
+                </div>
+            </div>
     }
 }
-#[derive(Properties, PartialEq)]
-struct PlayerProps {
-    discard: Vec<Card>,
-    deck: Vec<Card>,
-    played: Vec<Card>,
-    authority: i32
-}
+
 #[function_component]
 fn Player(props: &PlayerProps) -> Html {
     let played = props.played.clone();
     let bases = Card::filter_bases(played.clone());
     let ships = Card::filter_ships(played);
+    if !props.p1 {
+        html! {
+            <div class={classes!("player-row")}>
+                <PlayerDiscard discard={props.discard.clone()} />
+                <CardDeck deck={props.deck.clone()} visible={false} />
+                <PlayedCards bases={bases.clone()} ships={ships.clone()} />
+                <PlayerAuthority authority={props.authority} p1={ props.p1 } />
+            </div>
+        }
+    } else {
+        html! {
+            <div class={classes!("player-row-rev")}>
+                <PlayerAuthority authority={props.authority}  p1={ props.p1 } />
+                <PlayedCards bases={bases.clone()} ships={ships.clone()} />
+                <CardDeck deck={props.deck.clone()} visible={false} />
+                <PlayerDiscard discard={props.discard.clone()} />
+            </div>
+        }
+    }
+}
+
+#[function_component]
+fn CardsModal(props: &CardsModalProps) -> Html {
     html! {
-        <div class={classes!("player-row")}>
-            <PlayerDiscard discard={props.discard.clone()} />
-            <CardDeck deck={props.deck.clone()} visible={false}/>
-            <PlayedCards bases={bases.clone()} ships={ships.clone()} />
-            <PlayerAuthority authority={props.authority} />
+        <div class={classes!("cards-modal")}>
+           <div class={classes!("modal-content")}>
+               <div class={classes!("trade-row-container")}>
+                 <TradeRow cards={props.cards.clone()} />
+                </div>
+            </div>
         </div>
     }
 }
-#[derive(Properties, PartialEq)]
-struct BoardProps {
-    explorers: Vec<Card>,
-    trade_row: Vec<Card>,
-    trade_deck: Vec<Card>,
-    scrap: Vec<Card>
-}
+
 #[function_component]
-fn Board(props: &BoardProps) -> Html {
-    html! {<><div class={classes!("game-board")}>
-        <CardDeck deck={props.explorers.clone()} visible={true}/>
-        <CardDeck deck={props.trade_deck.clone()} visible={false}/>
-        <CardDeck deck={props.scrap.clone()} visible={true}/></div>
-        <TradeRow cards={props.trade_row.clone()}/></>
+fn CardModal(props: &CardModalProps) -> Html {
+    html! {
+        <div class={classes!("cards-modal")}>
+           <div class={classes!("modal-content")}>
+                 <CardComponent card={props.card.clone()} />
+            </div>
+        </div>
     }
 }
+
+#[function_component]
+fn Board(props: &BoardProps) -> Html {
+    html! {
+        <div class={classes!("game-board")}>
+            <CardDeck deck={props.explorers.clone()} visible={true}/>
+            <TradeRow cards={props.trade_row.clone()}/>
+            <CardDeck deck={props.trade_deck.clone()} visible={false}/>
+            <CardDeck deck={props.scrap.clone()} visible={true}/>
+        </div>
+    }
+}
+
 #[function_component]
 fn App() -> Html {
     let mut gs = GameState::new();
     let mut p1 = gs.players.0;
     let mut p2 = gs.players.1;
 
-    p1.discard.push(CardFactory::mech_world());
-
-    p1.hand.played.push(CardFactory::imperial_fighter());
-    p1.hand.played.push(CardFactory::the_hive());
-    p1.hand.played.push(CardFactory::scout());
+    p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::mech_world());
     p1.hand.played.push(CardFactory::viper());
     p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::viper());
+    p1.hand.played.push(CardFactory::mothership());
 
-    p2.hand.played.push(CardFactory::the_hive());
-    p2.hand.played.push(CardFactory::mech_world());
-
-
+    p1.hand.played.push(CardFactory::space_station());
+    p1.hand.played.push(CardFactory::space_station());
     html! {
         <div>
-        <Player discard={p1.discard.clone()} deck={p1.deck.clone()} played={p1.hand.played.clone()} authority={p1.authority.clone()} />
-        <Board explorers={gs.explorers.clone()} trade_row={gs.trade_row.clone()} trade_deck={gs.trade_deck} scrap={gs.scrap.clone()} />
-        <Player discard={p2.discard.clone()} deck={p2.deck.clone()} played={p2.hand.played.clone()} authority={p2.authority.clone()} />
+            <Player p1={false} discard={p1.discard.clone()} deck={p1.deck.clone()} played={p1.hand.played.clone()} authority={p1.authority.clone()} />
+            <Board explorers={gs.explorers.clone()} trade_row={gs.trade_row.clone()} trade_deck={gs.trade_deck} scrap={gs.scrap.clone()} />
+            <Player p1={true} discard={p1.discard.clone()} deck={p1.deck.clone()} played={p1.hand.played.clone()} authority={p1.authority.clone()} />
+            //<CardsModal cards={p1.hand.played.clone()}/>
+            //<CardModal card={CardFactory::scout()} />
         </div>
     }
 }

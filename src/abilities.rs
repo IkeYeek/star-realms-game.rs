@@ -1,5 +1,5 @@
 use std::cmp::PartialEq;
-use std::fmt::{format, Debug, Formatter};
+use std::fmt::{format, Debug, Display, Formatter, Write};
 use std::ops::Deref;
 use std::rc::Rc;
 use crate::abilities::Ability::{Atomic, Delayed};
@@ -32,6 +32,16 @@ impl Predicate {
     }
 }
 
+impl Display for Predicate {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AtomicAbility")
+            .field("description", &self.description)
+            .field("ability", &"<closure>")
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum ChoicesSources {
     EnemyBase,
     TradeRow,
@@ -42,6 +52,7 @@ pub enum ChoicesSources {
     And(Box<ChoicesSources>, Box<ChoicesSources>)
 }
 
+#[derive(Clone, Debug)]
 pub enum AfterCapacity {
     AllyToAll,
     NextShipOnTop,
@@ -70,13 +81,14 @@ pub struct AtomicAbility
     after_capacity: Option<Rc<AfterCapacity>>,
 }
 
+impl Display for AtomicAbility {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.description())
+    }
+}
 impl Debug for AtomicAbility {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("YourStruct")
-            .field("name", &self.name)
-            .field("description", &self.description)
-            .field("ability", &"<closure>")
-            .finish()
+        f.write_fmt(format_args!("{}", self.description))
     }
 }
 
@@ -96,6 +108,18 @@ pub enum Ability {
     Or(Box<Ability>, Box<Ability>),
     Cond(Predicate, Box<Ability>),
     Delayed(Box<Ability>),
+}
+
+impl Display for Ability {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Atomic(a) => { f.write_fmt(format_args!("{}", a.to_string())) }
+            Ability::And(a, b) => { f.write_fmt(format_args!("{} and {}", a, b)) }
+            Ability::Or(a, b) => { f.write_fmt(format_args!("{} or {}", a, b)) }
+            Ability::Cond(cond, a) => { f.write_fmt(format_args!("if {}, then {}", cond, a)) }
+            Delayed(d) => {f.write_fmt(format_args!("delayed {}", d)) }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -350,7 +374,7 @@ impl AbilityFactory {
     }
 
     pub fn copy_ship() -> Ability {
-        Delayed(Box::new(Atomic(AtomicAbility {
+        Atomic(AtomicAbility {
             name: "Copy Ship".to_string(),
             description: "Copy another ship you've played this turn.".to_string(),
             ability: Rc::new(AtomicAbilityFn::Card(Box::new(|gs: GameState, c: Card| -> Result<GameState, String> {
@@ -361,7 +385,7 @@ impl AbilityFactory {
             }))),
             choices_sources: Some(Rc::new(Played)),
             after_capacity: None,
-        })))
+        })
     }
 
     pub fn ally_to_all() -> Ability {

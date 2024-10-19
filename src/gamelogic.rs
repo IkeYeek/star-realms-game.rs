@@ -1,0 +1,4 @@
+struct GameLogic {}
+impl GameLogic {
+
+}

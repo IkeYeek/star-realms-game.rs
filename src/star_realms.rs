@@ -1,6 +1,7 @@
-use rand::prelude::SliceRandom;
+use rand::prelude::{SliceRandom, ThreadRng};
+use rand::thread_rng;
 use crate::abilities::Ability;
-use crate::cards::Card;
+use crate::cards::{Card, CardFactory};
 
 #[derive(Debug, Clone)]
 pub struct GameState {
@@ -13,15 +14,87 @@ pub struct GameState {
 }
 
 impl GameState {
+    fn fill_trade_deck(&mut self) {
+        // Trade Federation
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::federation_shuttle()));
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::cutter()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::embassy_yacht()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::freighter()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::command_ship()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::trade_escort()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::flagship()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::trading_post()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::barter_world()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::defense_center()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::central_office()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::port_of_call()));
+
+        // Blob
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::blob_fighter()));
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::trade_pod()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::battle_pod()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::ram()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::blob_destroyer()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::battle_blob()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::blob_carrier()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::mothership()));
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::blob_wheel()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::the_hive()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::blob_world()));
+
+        // Star Empire
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::imperial_fighter()));
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::imperial_frigate()));
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::survey_ship()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::corvette()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::battlecruiser()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::dreadnaught()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::space_station()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::recycling_station()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::war_world()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::royal_redoubt()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::fleet_hq()));
+
+        // Machine Cult
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::trade_bot()));
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::missile_bot()));
+        self.trade_deck.append(&mut CardFactory::n_of(3, CardFactory::supply_bot()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::battle_station()));
+        self.trade_deck.append(&mut CardFactory::n_of(2, CardFactory::patrol_mech()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::stealth_needle()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::battle_mech()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::missile_mech()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::mech_world()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::brain_world()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::machine_base()));
+        self.trade_deck.append(&mut CardFactory::n_of(1, CardFactory::junkyard()));
+    }
+    fn mix_trade_deck(&mut self) {
+        let mut rng = thread_rng();
+        self.trade_deck.shuffle(&mut rng);
+    }
+    fn from_trade_deck_to_row(&mut self) {
+        let poped = self.trade_deck.pop();
+        if let Some(c) = poped {
+            self.trade_row.push(c);
+        }
+    }
     pub fn new() -> GameState {
-        GameState {
+        let mut gs = GameState {
             explorers: vec![],
             trade_row: vec![],
             trade_deck: vec![],
             scrap: vec![],
             turn: 0,
             players: (Player::new(), Player::new()),
+        };
+        gs.explorers.append(&mut CardFactory::n_of(10, CardFactory::explorer()));
+        gs.fill_trade_deck();
+        gs.mix_trade_deck();
+        for _ in 0..5 {
+            gs.from_trade_deck_to_row();
         }
+        gs
     }
 
     pub fn mutate_players(&self, new_player: Player, player_id: i32) -> GameState {
@@ -117,17 +190,24 @@ pub struct Player {
 
 impl Player {
     pub fn new() -> Player {
-        Player {
+        let mut p = Player {
             discard: vec![],
             deck: vec![],
             hand: Hand::new(),
             authority: 50,
-        }
+        };
+        p.deck.append(&mut CardFactory::n_of(8, CardFactory::scout()));
+        p.deck.append(&mut CardFactory::n_of(2, CardFactory::viper()));
+        p
     }
 
     pub fn deck_from_discard(&mut self) {
         self.deck = self.discard.clone();
         self.discard.clear();
+        self.mix_deck();
+    }
+
+    fn mix_deck(&mut self) {
         let mut rng = rand::thread_rng();  // TODO find more suitable place
         self.deck.shuffle(&mut rng);
     }

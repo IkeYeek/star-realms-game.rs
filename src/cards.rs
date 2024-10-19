@@ -1,11 +1,12 @@
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use log::info;
 use crate::abilities::{Abilities, Ability, AbilityFactory, Predicate};
 use crate::abilities::Ability::{And, Atomic, Cond, Or};
 use crate::cards::Faction::{Blob, Machine, Star, Trade};
 use crate::star_realms::GameState;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Faction {
     Blob,
     Machine,
@@ -36,6 +37,65 @@ pub enum Card {
     Faction(Box<Card>, Faction),
     Cost(Box<Card>, i32),
     Base(Box<Card>, i32, bool),
+}
+
+impl Card {
+    pub fn get_name(&self) -> String {
+        match self {
+            Card::Basic(c) => { c.name.clone() }
+            Card::Faction(c, _) => { c.get_name() }
+            Card::Cost(c, _) => { c.get_name() }
+            Card::Base(c, _, _) => { c.get_name() }
+        }
+    }
+
+    pub fn get_faction(&self) -> Option<Faction> {
+        match self {
+            Card::Basic(_) => { None }
+            Card::Faction(_, f) => { Some(f.clone()) }
+            Card::Cost(c, _) => { c.get_faction() }
+            Card::Base(c, _, _) => { c.get_faction() }
+        }
+    }
+
+    pub fn get_cost(&self) -> Option<i32> {
+        match self {
+            Card::Basic(_) => { None }
+            Card::Faction(c, _) => { c.get_cost() }
+            Card::Cost(_, c) => { Some(*c) }
+            Card::Base(c, _, _) => { c.get_cost() }
+        }
+    }
+
+    pub fn get_abilities(&self) -> Abilities {
+        match self {
+            Card::Basic(c) => { c.abilities.clone() }
+            Card::Faction(c, _) => { c.get_abilities() }
+            Card::Cost(c, _) => { c.get_abilities() }
+            Card::Base(c, _, _) => { c.get_abilities() }
+        }
+    }
+
+    pub fn filter_ships(from: Vec<Card>) -> Vec<Card> {
+        let mut sink = from.clone();
+        for i in (0..from.len()).rev() {
+            if let Card::Base(..) = sink[i].clone() {
+                sink.remove(i);
+            }
+        }
+        sink
+    }
+
+    pub fn filter_bases(from: Vec<Card>) -> Vec<Card> {
+        let mut sink = vec![];
+        for i in 0..from.len(){
+            let c = from[i].clone();
+            if let Card::Base(..) = c {
+                sink.push(c);
+            }
+        }
+        sink
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -474,7 +534,7 @@ impl CardFactory {
         }, Some(Machine), Some(3), 5, true)
     }
 
-    pub fn patrol_merch() -> Card {
+    pub fn patrol_mech() -> Card {
         Self::faction("Patrol Merch".to_string(), Abilities {
             on_board: Some(Or(
                 Box::new(AbilityFactory::give_trade(3)),
@@ -493,7 +553,7 @@ impl CardFactory {
         }, Machine, Some(4))
     }
 
-    pub fn battle_merch() -> Card {
+    pub fn battle_mech() -> Card {
         Self::faction("Battle Merch".to_string(), Abilities {
             on_board: Some(And(
                 Box::new(AbilityFactory::give_damages(4)),
@@ -504,7 +564,7 @@ impl CardFactory {
         }, Machine, Some(5))
     }
 
-    pub fn missile_merch() -> Card {
+    pub fn missile_mech() -> Card {
         Self::faction("Missile Merch".to_string(), Abilities {
             on_board: Some(And(
                 Box::new(AbilityFactory::give_damages(6)),
@@ -545,5 +605,13 @@ impl CardFactory {
             on_faction: None,
             on_scrap: None
         }, Some(Machine), Some(6), 5, true)
+    }
+
+    pub fn n_of(n: usize, c: Card) -> Vec<Card> {
+        let mut sink = vec![];
+        for _ in 0..n {
+            sink.push(c.clone());
+        }
+        sink
     }
 }

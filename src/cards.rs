@@ -1,8 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use log::info;
-use crate::abilities::{Abilities, Ability, AbilityFactory, Predicate};
-use crate::abilities::Ability::{And, Atomic, Cond, Or};
+use crate::abilities::{Abilities, AbilityFactory, Predicate};
+use crate::abilities::Ability::{And, Cond, Or};
 use crate::cards::Faction::{Blob, Machine, Star, Trade};
 use crate::star_realms::GameState;
 
@@ -183,7 +182,7 @@ impl CardFactory {
                     Box::new(Cond(
                         Predicate::new(
                             "If you have two or more bases in play, draw two cards".to_string(),
-                            Rc::new(|gs: GameState| {
+                            Rc::new(|gs: &GameState| {
                                 let p = gs.get_current_player();
                                 let played_bases = p.hand.get_played_bases();
                                 played_bases.len() >= 2

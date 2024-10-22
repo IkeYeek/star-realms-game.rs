@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rand = "0.8.5"
+rand = "0.8"
 # this is the development version of Yew
-yew = { git = "https://github.com/yewstack/yew/", features = ["csr"] }
-wasm-logger = "0.2.0"
-log = "0.4.22"
+yew = { git = "https://github.com/yewstack/yew/", features = ["csr", ] }
+web-sys = { version = "0.3", features = ["Event"] }
+wasm-logger = "0.2"
+log = "0.4"

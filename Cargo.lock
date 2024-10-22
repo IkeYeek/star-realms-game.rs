@@ -938,6 +938,7 @@ dependencies = [
  "log",
  "rand",
  "wasm-logger",
+ "web-sys",
  "yew",
 ]
 

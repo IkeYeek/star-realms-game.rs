@@ -1,4 +1,4 @@
-use rand::prelude::{SliceRandom, ThreadRng};
+use rand::prelude::{SliceRandom};
 use rand::thread_rng;
 use crate::abilities::Ability;
 use crate::cards::{Card, CardFactory};

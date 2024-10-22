@@ -1,10 +1,7 @@
-use std::ops::Deref;
+use log::info;
 use yew::prelude::*;
 use yew::{classes, html};
-use log::info;
-use crate::abilities::Abilities;
-use crate::abilities::AtomicAbilityFn::Cards;
-use crate::cards::{Card, CardFactory, Faction};
+use crate::cards::{Card, Faction};
 use crate::star_realms::GameState;
 
 mod star_realms;
@@ -17,52 +14,6 @@ mod gamelogic;
 #[derive(Properties, PartialEq)]
 pub struct CardProps {
     pub card: Card,
-}
-
-struct FlattenedCard {
-    name: Option<String>,
-    abilities: Option<Abilities>,
-    faction: Option<Faction>,
-    cost: Option<i32>,
-    authority: Option<i32>,
-    is_outpost: Option<bool>,
-}
-
-impl FlattenedCard {
-    fn from_rec(c: Card, mut fc: &mut FlattenedCard) -> &mut FlattenedCard {
-        match c {
-            Card::Basic(c) => {
-                fc.name = Some(c.name);
-                fc.abilities = Some(c.abilities);
-                fc
-            }
-            Card::Faction(c, f) => {
-                fc.faction = Some(f);
-                Self::from_rec(*c, fc)
-            }
-            Card::Cost(c, f) => {
-                fc.cost = Some(f);
-                Self::from_rec(*c, fc)
-            }
-            Card::Base(c, a, op) => {
-                fc.authority = Some(a);
-                fc.is_outpost = Some(op);
-                Self::from_rec(*c, fc)
-            }
-        }
-    }
-    pub fn from(c: Card) -> FlattenedCard {
-        let mut fc: FlattenedCard = FlattenedCard {
-            name: None,
-            abilities: None,
-            faction: None,
-            cost: None,
-            authority: None,
-            is_outpost: None,
-        };
-        Self::from_rec(c, &mut fc);
-        fc
-    }
 }
 
 #[derive(Properties, PartialEq)]
@@ -96,6 +47,8 @@ struct CardDeckProps {
 struct AuthorityProps {
     authority: i32,
     p1: bool,
+    damages: i32,
+    trade: i32
 }
 
 #[derive(Properties, PartialEq)]
@@ -104,12 +57,14 @@ struct PlayerProps {
     deck: Vec<Card>,
     played: Vec<Card>,
     authority: i32,
-    p1: bool
+    p1: bool,
+    trade: i32,
+    damages: i32,
 }
 
 #[derive(Properties, PartialEq)]
 struct CardsModalProps {
-    cards: Vec<Card>
+    cards: Vec<Card>,
 }
 
 #[derive(Properties, PartialEq)]
@@ -247,9 +202,7 @@ fn CardDeck(props: &CardDeckProps) -> Html {
     match c {
         None => html! { <EmptyPile /> },
         Some(c) => if props.visible {
-            html! { <div onclick={Callback::from(|evt| {
-                info!("??");
-            })}><CardComponent card={c} /></div> }
+            html! { <CardComponent card={c} /> }
         } else {
             html! { <CardBackComponent /> }
         }
@@ -258,12 +211,16 @@ fn CardDeck(props: &CardDeckProps) -> Html {
 
 #[function_component]
 fn PlayerAuthority(props: &AuthorityProps) -> Html {
-    let playerName = if props.p1 { "Player 1"} else { "Player 2" };
+    let player_name = if props.p1 { "Player 1"} else { "Player 2" };
     html! {
             <div class={classes!("authority-card")}>
+                <div>
+                    <div>{ props.damages }</div>
+                    <div>{ props.trade }</div>
+                </div>
                 <div class={classes!("card-title")}>{"Authority"}</div>
                 <div class={classes!("authority-display")}>
-                    <div class={classes!("authority-icon")}>{playerName}</div>
+                    <div class={classes!("authority-icon")}>{player_name}</div>
                     <div class={classes!("authority-number")}>{props.authority}</div>
                 </div>
             </div>
@@ -281,13 +238,13 @@ fn Player(props: &PlayerProps) -> Html {
                 <PlayerDiscard discard={props.discard.clone()} />
                 <CardDeck deck={props.deck.clone()} visible={false} />
                 <PlayedCards bases={bases.clone()} ships={ships.clone()} />
-                <PlayerAuthority authority={props.authority} p1={ props.p1 } />
+                <PlayerAuthority authority={props.authority} p1={ props.p1 } trade={ props.trade } damages={ props.damages } />
             </div>
         }
     } else {
         html! {
             <div class={classes!("player-row-rev")}>
-                <PlayerAuthority authority={props.authority}  p1={ props.p1 } />
+                <PlayerAuthority authority={props.authority}  p1={ props.p1 } trade={ props.trade } damages={ props.damages } />
                 <PlayedCards bases={bases.clone()} ships={ships.clone()} />
                 <CardDeck deck={props.deck.clone()} visible={false} />
                 <PlayerDiscard discard={props.discard.clone()} />
@@ -298,9 +255,14 @@ fn Player(props: &PlayerProps) -> Html {
 
 #[function_component]
 fn CardsModal(props: &CardsModalProps) -> Html {
+    let hideModal = Callback::from(|_| {
+       info!("test");
+    });
     html! {
-        <div class={classes!("cards-modal")}>
-           <div class={classes!("modal-content")}>
+        <div class={classes!("cards-modal")} onclick={hideModal} >
+           <div class={classes!("modal-content")} onclick={Callback::from(|e: MouseEvent|{
+            e.stop_propagation();
+        })} >
                <div class={classes!("trade-row-container")}>
                  <TradeRow cards={props.cards.clone()} />
                 </div>
@@ -334,30 +296,16 @@ fn Board(props: &BoardProps) -> Html {
 
 #[function_component]
 fn App() -> Html {
-    let mut gs = GameState::new();
-    let mut p1 = gs.players.0;
-    let mut p2 = gs.players.1;
+    let gs = GameState::new();
+    let p1 = gs.players.0;
+    let p2 = gs.players.1;
 
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::mech_world());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::viper());
-    p1.hand.played.push(CardFactory::mothership());
-
-    p1.hand.played.push(CardFactory::space_station());
-    p1.hand.played.push(CardFactory::space_station());
     html! {
         <div>
-            <Player p1={false} discard={p1.discard.clone()} deck={p1.deck.clone()} played={p1.hand.played.clone()} authority={p1.authority.clone()} />
+            <Player p1={false} discard={p1.discard.clone()} deck={p1.deck.clone()} played={p1.hand.played.clone()} authority={p1.authority.clone()} trade={p1.hand.trade} damages={p1.hand.damage} />
             <Board explorers={gs.explorers.clone()} trade_row={gs.trade_row.clone()} trade_deck={gs.trade_deck} scrap={gs.scrap.clone()} />
-            <Player p1={true} discard={p1.discard.clone()} deck={p1.deck.clone()} played={p1.hand.played.clone()} authority={p1.authority.clone()} />
-            //<CardsModal cards={p1.hand.played.clone()}/>
+            <Player p1={true} discard={p2.discard.clone()} deck={p2.deck.clone()} played={p2.hand.played.clone()} authority={p2.authority.clone()} trade={p2.hand.trade} damages={p2.hand.damage} />
+            <CardsModal cards={gs.explorers} />
             //<CardModal card={CardFactory::scout()} />
         </div>
     }
